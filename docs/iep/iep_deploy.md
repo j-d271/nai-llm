@@ -1,8 +1,8 @@
 # Deploying Nutanix Enterprise AI (NAI) NVD Reference Application
 
-!!! info "Version 2.6.0"
+!!! info "Version 2.7.0"
 
-    This version of the NAI deployment is based on the Nutanix Enterprise AI (NAI) ``v2.6.0`` release.
+    This version of the NAI deployment is based on the Nutanix Enterprise AI (NAI) ``v2.7.0`` release.
 
 ```mermaid
 stateDiagram-v2
@@ -25,23 +25,24 @@ stateDiagram-v2
 ## Prepare for NAI Deployment
 
 
-!!! example "Early Access(EA)/Technical Preview(TP) Software with NAI v2.6.0"
+!!! example "GA Software with NAI v2.7.0"
     
-    In this lab, we will deploy EA and TP version of the following software to test the following:
+    In this lab, we will deploy GA version of the following software to test the following:
 
     -  Nutanix Enterprise AI 
   
-        * Unified Endpoints - multiple endpoints for HA and token-based rate limiting
-        * Providers - Add remote endpoints from providers to utilize their models in Nutanix Enterprise AI workloads.
+        * **Unified Endpoints** - multiple endpoints for HA and token-based rate limiting
+        * **Providers** - Add remote endpoints from providers to utilize their models in Nutanix Enterprise AI workloads.
 
 !!! info
 
-    Changes in NAI ``v2.6.0``
+    Changes in NAI ``v2.7.0``
 
     - Kserve is of at least of ``v0.15.0``
     - Cert-manager is at least of ``v1.17.2``
     - OpenTelemetry operator is at least of ``v0.102.0``
-    - Envoy Gateway is at least of ``v1.6.3``
+    - Envoy Gateway is at least of ``v1.7.0``
+    - Prometheus Monitoring is at least of ``78.4.0``
   
 ## Enable Pre-requisite Applications  
 
@@ -59,22 +60,40 @@ The following pre-requisite applications will be enabled on NKP GUI:
 
     The helm charts and the container images for these applications are stored in internal Harbor registry. These images got uploaded to Harbor at the time of install NKE in this [section](../airgap_nai/infra_nkp_airgap.md#push-container-images-to-localprivate-registry-to-be-used-by-nkp).
 
+
+**Search** and **Enable** the following applications: follow this order to install dependencies for NAI application
+
+
 1. In the NKP GUI, Go to **Clusters**
 2. Click on **Management Cluster Workspace**
-3. Go to **Applications** 
-4. Search and enable the following applications: follow this order to install dependencies for NAI application
+3. Go to **Applications** to search and enable the following:
    
-    - Kube-prometheus-stack: version ``71.0.0`` or later (pre-installed on NKP cluster)
-    - Cert-manager - v1.17.2
-    
-    !!! tip "Cert-manager - v1.17.2"
+     * **Prometheus Monitoring** : version ``78.4.0`` or higher with the following ``Values`` configuration 
+     
+        ```yaml
+        alertmanager:
+          enabled: false
+        grafana:
+          enabled: false
+        prometheus:
+          enabled: false
+        kubeStateMetrics:
+          enabled: false
+        kubernetesServiceMonitors:
+          enabled: false
+        prometheus-node-exporter.kubeRBACProxy:
+          kubeRBACProxy:
+            enabled: true
+        ```
 
+     * **Cert-manager**- ``v1.17.2``
+    
         The following application are pre-installed on NKP cluster with Pro license
     
         - Cert Manager ``v1.17.2`` or higher
         
         Check if Cert Manager is installed (pre-installed on NKP cluster if license is installed)
-       
+        
         === ":octicons-command-palette-16: Command"
         
             ```bash
@@ -92,8 +111,10 @@ The following pre-requisite applications will be enabled on NKP GUI:
             cert-manager-webhook      1/1     1            1           145m
             ```
     
-        If not installed, use the following command or **NKP Applications GUI** to install it
-    
+        If not installed, use  or **NKP Applications GUI** to install it
+        
+        The following command can also be used to install Cert-manager
+
         === ":octicons-command-palette-16: Command"
         
             ```bash
@@ -114,13 +135,13 @@ The following pre-requisite applications will be enabled from the command line o
         source $HOME/nai-airgap/.env
         ```
 
-3. Install Envoy Gateway CRDs ``v1.6.3`` in **AI gateway mode**
+3. Install Envoy Gateway CRDs ``v1.7.0`` in **AI gateway mode**
    
     === ":octicons-command-palette-16: Command"
     
         ```bash
         helm template eg oci://docker.io/envoyproxy/gateway-crds-helm \
-        --version v1.6.3 \
+        --version v1.7.0 \
         --set crds.gatewayAPI.enabled=true \
         --set crds.envoyGateway.enabled=true \
         | kubectl apply --server-side --force-conflicts -f -
@@ -129,7 +150,7 @@ The following pre-requisite applications will be enabled from the command line o
     === ":octicons-command-palette-16: Command output"
     
         ```bash
-        Pulled: docker.io/envoyproxy/gateway-crds-helm:v1.6.3
+        Pulled: docker.io/envoyproxy/gateway-crds-helm:v1.7.0
         Digest: sha256:e94d3fdf5d4cb08e2c8efa8c1da133b9804c2e88a3acb4d0e20adb8755a60174
         customresourcedefinition.apiextensions.k8s.io/backendtlspolicies.gateway.networking.k8s.io serverside-applied
         customresourcedefinition.apiextensions.k8s.io/gatewayclasses.gateway.networking.k8s.io serverside-applied
@@ -157,71 +178,71 @@ The following pre-requisite applications will be enabled from the command line o
 
     === ":octicons-file-code-16: ``eg-config-for-gateway-mode.yaml``"
     
-        ```bash
+        ```yaml
         config:
-        envoyGateway:
-          gateway:
-            controllerName: "gateway.envoyproxy.io/gatewayclass-controller"
-          logging:
-            level:
-              default: "info"
-          provider:
-            kubernetes:
-              rateLimitDeployment:
-                container:
-                  image: "docker.io/envoyproxy/ratelimit:99d85510"
-                patch:
-                  type: "StrategicMerge"
-                  value:
-                    spec:
-                      template:
-                        spec:
-                          containers:
-                            - imagePullPolicy: "IfNotPresent"
-                              name: "envoy-ratelimit"
-                              image: "docker.io/envoyproxy/ratelimit:99d85510"
-            type: "Kubernetes"
-          extensionApis:
-            enableEnvoyPatchPolicy: true
-            enableBackend: true
-          extensionManager:
-            maxMessageSize: 11Mi
-            backendResources:
-              - group: inference.networking.k8s.io
-                kind: InferencePool
-                version: v1
-            hooks:
-              xdsTranslator:
-                translation:
-                  listener:
-                    includeAll: true
-                  route:
-                    includeAll: true
-                  cluster:
-                    includeAll: true
-                  secret:
-                    includeAll: true
-                post:
-                  - "Translation"
-                  - "Cluster"
-                  - "Route"
-            service:
-              fqdn:
-                hostname: "ai-gateway-controller.nai-system.svc.cluster.local"
-                port: 1063
-          rateLimit:
-            backend:
-              type: "Redis"
-              redis:
-                url: "redis-sentinel.nai-system.svc.cluster.local:6379"
+          envoyGateway:
+            gateway:
+              controllerName: "gateway.envoyproxy.io/gatewayclass-controller"
+            logging:
+              level:
+                default: "info"
+            provider:
+              kubernetes:
+                rateLimitDeployment:
+                  container:
+                    image: "docker.io/envoyproxy/ratelimit:99d85510"
+                  patch:
+                    type: "StrategicMerge"
+                    value:
+                      spec:
+                        template:
+                          spec:
+                            containers:
+                              - imagePullPolicy: "IfNotPresent"
+                                name: "envoy-ratelimit"
+                                image: "docker.io/envoyproxy/ratelimit:99d85510"
+              type: "Kubernetes"
+            extensionApis:
+              enableEnvoyPatchPolicy: true
+              enableBackend: true
+            extensionManager:
+              maxMessageSize: 11Mi
+              backendResources:
+                - group: inference.networking.k8s.io
+                  kind: InferencePool
+                  version: v1
+              hooks:
+                xdsTranslator:
+                  translation:
+                    listener:
+                      includeAll: true
+                    route:
+                      includeAll: true
+                    cluster:
+                      includeAll: true
+                    secret:
+                      includeAll: true
+                  post:
+                    - "Translation"
+                    - "Cluster"
+                    - "Route"
+              service:
+                fqdn:
+                  hostname: "ai-gateway-controller.nai-system.svc.cluster.local"
+                  port: 1063
+            rateLimit:
+              backend:
+                type: "Redis"
+                redis:
+                  url: "redis-sentinel.nai-system.svc.cluster.local:6379"
         ```
     
-5. Install Envoy Gateway ``v1.6.3``
+5. Install Envoy Gateway ``v1.7.0``
    
     === ":octicons-command-palette-16: Command"
     
         ```bash
-        helm upgrade --install eg oci://docker.io/envoyproxy/gateway-helm --version v1.6.3 \
+        helm upgrade --install eg oci://docker.io/envoyproxy/gateway-helm --version v1.7.0 \
         -n envoy-gateway-system --create-namespace --skip-crds \
         -f ./eg-config-for-gateway-mode.yaml
         ```
@@ -229,7 +250,7 @@ The following pre-requisite applications will be enabled from the command line o
     === ":octicons-command-palette-16: Output"
         
         ```{ .text .no-copy }
-        Pulled: docker.io/envoyproxy/gateway-helm:v1.6.3
+        Pulled: docker.io/envoyproxy/gateway-helm:v1.7.0
         Digest: sha256:6dca101fdc0d41c702c1070eb42db119a2768a33388ba28041ae615cbe262aaf
         Release "eg" has been upgraded. Happy Helming!
         NAME: eg
@@ -262,6 +283,12 @@ The following pre-requisite applications will be enabled from the command line o
         ``` 
 
 6. Check if Envoy Gateway resources are ready
+    
+    !!! warning 
+        
+        The ``envoy-ratelimit-`` pod will temporarily be in ``CrashLoopBackOff`` state and eventually will transition to ``Running`` after redis-standalone pod is fully deployed in the upcoming [Deploy NAI](iep_deploy.md#deploy-nai) section.
+
+        Ignore the ``CrashLoopBackOff`` state for now and move on to the next section. 
    
     === ":octicons-command-palette-16: Command"
     
@@ -269,13 +296,25 @@ The following pre-requisite applications will be enabled from the command line o
         kubectl wait --timeout=5m -n envoy-gateway-system deployment/envoy-gateway \
         --for=condition=Available
         ```
+        ```bash
+        kubectl get po -n envoy-gateway-system
+        ```
+
 
     === ":octicons-command-palette-16: Output"
 
         ```{ .text .no-copy }
-        kubectl wait --timeout=5m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
+        $ kubectl wait --timeout=5m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
         #
         deployment.apps/envoy-gateway condition met
+        ```
+        ```{ .text .no-copy }
+        $ kubectl get pods -n envoy-gateway-system
+        #
+        NAME                                                             READY   STATUS    RESTARTS        AGE
+        envoy-gateway-5c8b5fd5fb-8msl9                                   1/1     Running   4 (2d15h ago)   2m
+        envoy-nai-system-nai-ingress-gateway-ff52ba1f-69d6bd9cf5-zfc6h   2/2     Running   0               2m
+        envoy-ratelimit-6b4657bddd-x5p8p                                 1/1     Running   0               2m
         ```
 
 ### Kserve
@@ -320,7 +359,7 @@ The following pre-requisite applications will be enabled from the command line o
         Digest: sha256:57ad1a5475fd625cb558214ba711752aa77b7d91686a391a5f5320cfa72f3fa8
         Release "kserve-crd" has been upgraded. Happy Helming!
         NAME: kserve-crd
-        LAST DEPLOYED: Sat Apr  4 08:40:05 2026
+        LAST DEPLOYED: Sun May 30 08:40:05 2026
         NAMESPACE: kserve
         STATUS: deployed
         REVISION: 2
@@ -331,7 +370,7 @@ The following pre-requisite applications will be enabled from the command line o
         Digest: sha256:905abce80e975c53b40fba7a12b0b9a1e24bdf65cceebb88fba4ef62bba01406
         Release "kserve" has been upgraded. Happy Helming!
         NAME: kserve
-        LAST DEPLOYED: Sat Apr  4 08:41:02 2026
+        LAST DEPLOYED: Sun May 30 08:41:05 2026
         NAMESPACE: kserve
         STATUS: deployed
         REVISION: 2
@@ -353,12 +392,12 @@ The following pre-requisite applications will be enabled from the command line o
     
         ```{ .text .no-copy }
         NAME                                         READY   STATUS    RESTARTS   AGE
-        kserve-controller-manager-69b6dbf9cf-ft55b   2/2     Running   0          4d23h
+        kserve-controller-manager-69b6dbf9cf-ft55b   2/2     Running   0          2m
         ```
 
 ### OpenTelemetry
 
-11. Install OpenTelemetry Operator:
+1. Install OpenTelemetry Operator:
 
     === ":octicons-command-palette-16: Command"
 
@@ -374,7 +413,7 @@ The following pre-requisite applications will be enabled from the command line o
         ```{ .text .no-copy }
         Release "opentelemetry-operator" has been upgraded. Happy Helming!
         NAME: opentelemetry-operator
-        LAST DEPLOYED: Sat Apr  4 08:42:43 2026
+        LAST DEPLOYED: Sun May 30 08:42:05 2026
         NAMESPACE: opentelemetry
         STATUS: deployed
         REVISION: 2
@@ -409,7 +448,7 @@ We will use the Docker login credentials we created in the previous section to d
 
     === ":octicons-file-code-16: Template ``.env``"
 
-        ```text
+        ```bash
         export REGISTRY_SECRET_NAME=_k8s_secret_for_nai
         export DOCKER_SERVER=https://index.docker.io/v1/
         export DOCKER_NAI_USERNAME=_GA_release_docker_username
@@ -418,8 +457,27 @@ We will use the Docker login credentials we created in the previous section to d
         export NAI_CORE_VERSION=_GA_release_nai_core_version
         export NAI_API_RWX_STORAGECLASS=_nkp_rwx_storage_class
         export NAI_DEFAULT_RWO_STORAGECLASS=_nkp_rwo_storage_class
-        export NKP_WORKSPACE_NAMESPACE=_nkp_workspace name
+        export NKP_WORKSPACE_NAMESPACE=_nkp_workspace name # (1)!
         ```
+
+        1. To get the workspace namespace, run the following commmand. Note the **WORKSPACE NAMESPACE** column in the output
+           
+            === ":octicons-command-palette-16: Command"
+            
+                ```bash
+                kubectl get workspaces
+                ```
+            
+            
+            === ":octicons-command-palette-16: Command output"
+            
+                ```text hl_lines="5"
+                $ kubectl get workspaces
+                #
+                NAME                  DISPLAY NAME                   WORKSPACE NAMESPACE           AGE
+                default-workspace     Default Workspace              kommander-default-workspace   3d
+                kommander-workspace   Management Cluster Workspace   kommander                     3d
+                ```
 
     === ":octicons-file-code-16: Sample ``.env``"
 
@@ -429,11 +487,12 @@ We will use the Docker login credentials we created in the previous section to d
         export DOCKER_NAI_USERNAME=ntnxsvcgpt
         export DOCKER_NAI_PASSWORD=dckr_pat_XXXXXXXXXXXXXXXXXXXXXXXXX
         export DOCKER_NAI_EMAIL=ntnxsvcgpt
-        export NAI_CORE_VERSION=2.6.0
+        export NAI_CORE_VERSION=2.7.0
         export NAI_API_RWX_STORAGECLASS=nai-nfs-storage
         export NAI_DEFAULT_RWO_STORAGECLASS=nutanix-volume
-        export NKP_WORKSPACE_NAMESPACE=kommander-workspace
+        export NKP_WORKSPACE_NAMESPACE=kommander
         ```
+            
 
 3. Source the environment variables
 
@@ -499,15 +558,42 @@ We will use the Docker login credentials we created in the previous section to d
         helm repo update ntnx-charts
         ```
 
-9. Install NAI operator
+9. Search and confirm if NAI ``v2.7.0`` charts are available
+    
+    === ":octicons-command-palette-16: Command"
+    
+        ```bash
+        helm search repo ntnx-charts/nai-operators --versions
+        helm search repo ntnx-charts/nai-core --versions
+        ```
+
+    === ":octicons-command-palette-16: Command output"
+    
+        ```text hl_lines="4 9"
+        $ helm search repo ntnx-charts/nai-core --versions
+        #
+        NAME                            CHART VERSION   APP VERSION     DESCRIPTION                                       
+        ntnx-charts/nai-operators       2.7.0           0.1.0           A Helm chart for CRDs and Operators required by...
+        ntnx-charts/nai-operators       2.7.0           0.1.0           A Helm chart for CRDs and Operators required by...
+        ntnx-charts/nai-operators       2.5.0           0.1.0           A Helm chart for CRDs and Operators required by...
+
+        NAME                    CHART VERSION   APP VERSION     DESCRIPTION                         
+        ntnx-charts/nai-core    2.7.0           0.1.0           A Helm chart for NAI core components
+        ntnx-charts/nai-core    2.7.0           0.1.0           A Helm chart for NAI core components
+        ntnx-charts/nai-core    2.5.0           0.1.0           A Helm chart for NAI core components
+        ntnx-charts/nai-core    2.4.0           0.1.0           A Helm chart for NAI core components
+        ntnx-charts/nai-core    2.3.0           0.1.0           A Helm chart for NAI core components
+        ```
+    
+10. Install NAI operator
    
     === ":octicons-command-palette-16: Command"
 
         ```text
-        helm upgrade --install nai-operators ntnx-charts/nai-operators --version=$NAI_CORE_VERSION  -n nai-system --create-namespace --wait \
-        --set "naiAIGateway.enabled=true" \
-        --set "global.imagePullSecrets[0].name=${REGISTRY_SECRET_NAME}" \
-        --insecure-skip-tls-verify
+        helm upgrade --install nai-operators ntnx-charts/nai-operators \
+          --version 2.7.0 \ 
+          -n nai-system --create-namespace --take-ownership --wait \
+          --set "global.imagePullSecrets[0].name=${REGISTRY_SECRET_NAME}" 
         ```
 
     === ":octicons-command-palette-16: Command output"
@@ -515,14 +601,14 @@ We will use the Docker login credentials we created in the previous section to d
         ```{ .text, .no-copy}
         Release "nai-operators" has been upgraded. Happy Helming!
         NAME: nai-operators
-        LAST DEPLOYED: Sat Apr  4 08:58:31 2026
+        LAST DEPLOYED: Sun May 30 08:48:05 2026
         NAMESPACE: nai-system
         STATUS: deployed
         REVISION: 3
         TEST SUITE: None
         ```
 
-10. Check if all NAI operator pods are running
+11. Check if all NAI operator pods are running
    
     === ":octicons-command-palette-16: Command"
 
@@ -539,7 +625,7 @@ We will use the Docker login credentials we created in the previous section to d
         redis-standalone-684f6dd8f7-hlwpl                       2/2     Running       0          3m5s
         ```
 
-11. Install NAI core in AI gateway mode
+12. Install NAI core in AI gateway mode
     
     !!! info
 
@@ -547,48 +633,44 @@ We will use the Docker login credentials we created in the previous section to d
     
     === ":octicons-command-palette-16: Command"
     
-        ```text hl_lines="3"
-        helm upgrade --install nai-core ntnx-charts/nai-core --version=$NAI_CORE_VERSION  -n nai-system --create-namespace --wait \
-        --set "global.imagePullSecrets[0].name=${REGISTRY_SECRET_NAME}" \
-        --set "naiAIGateway.enabled=true" \
-        --set "naiApi.storageClassName=${NAI_API_RWX_STORAGECLASS}" \
-        --set "defaultStorageClassName=${NAI_DEFAULT_RWO_STORAGECLASS}" \
-        --set "naiMonitoring.opentelemetry.storageClassName=${NAI_API_RWX_STORAGECLASS}" \
-        --set "nai-clickhouse-keeper.clickhouseKeeper.storage.storageClass=${NAI_DEFAULT_RWO_STORAGECLASS}" \
-        --set "nai-clickhouse-server.clickhouse.storage.storageClass=${NAI_DEFAULT_RWO_STORAGECLASS}" \
-        --set "naiMonitoring.nodeExporter.serviceMonitor.namespaceSelector.matchNames[0]=${NKP_WORKSPACE_NAMESPACE}" \
-        --set "naiMonitoring.dcgmExporter.serviceMonitor.namespaceSelector.matchNames[0]=${NKP_WORKSPACE_NAMESPACE}" \
-        --insecure-skip-tls-verify
+        ```text
+        helm upgrade --install nai-core ntnx-charts/nai-core \
+          --version 2.7.0 -n nai-system --create-namespace \
+          --force-conflicts --wait \
+          --set "global.imagePullSecrets[0].name=${REGISTRY_SECRET_NAME}" \
+          --set "global.storage.storageClassNameRWX=${NAI_API_RWX_STORAGECLASS}" \
+          --set "global.storage.storageClassName=${NAI_DEFAULT_RWO_STORAGECLASS}" \
+          --set "naiMonitoring.nodeExporter.serviceMonitor.namespaceSelector.matchNames[0]=${NKP_WORKSPACE_NAMESPACE}" \
+          --set "naiMonitoring.dcgmExporter.serviceMonitor.namespaceSelector.matchNames[0]=${NKP_WORKSPACE_NAMESPACE}" \
+          --insecure-skip-tls-verify
         ```
 
     === ":octicons-command-palette-16: Sample command"
     
-        ```text hl_lines="3"
-        helm upgrade --install nai-core ntnx-charts/nai-core --version=2.6.0  -n nai-system --create-namespace --wait \
-        --set "global.imagePullSecrets[0].name=nai-regcred" \
-        --set "naiAIGateway.enabled=true" \
-        --set "naiApi.storageClassName=nai-nfs-storage" \
-        --set "defaultStorageClassName=nutanix-volume" \
-        --set "naiMonitoring.opentelemetry.storageClassName=nai-nfs-storage" \
-        --set "nai-clickhouse-keeper.clickhouseKeeper.storage.storageClass=nutanix-volume" \
-        --set "nai-clickhouse-server.clickhouse.storage.storageClass=nutanix-volume" \
-        --set "naiMonitoring.nodeExporter.serviceMonitor.namespaceSelector.matchNames[0]=kommander" \
-        --set "naiMonitoring.dcgmExporter.serviceMonitor.namespaceSelector.matchNames[0]=kommander" \
-        --insecure-skip-tls-verify
+        ```text
+        helm upgrade --install nai-core ntnx-charts/nai-core \
+          --version 2.7.0 -n nai-system --create-namespace \
+          --force-conflicts --wait \
+          --set "global.imagePullSecrets[0].name=nai-regcred" \
+          --set "global.storage.storageClassNameRWX=nai-nfs-storage" \
+          --set "global.storage.storageClassName=nutanix-volume" \
+          --set "naiMonitoring.nodeExporter.serviceMonitor.namespaceSelector.matchNames[0]=kommander" \
+          --set "naiMonitoring.dcgmExporter.serviceMonitor.namespaceSelector.matchNames[0]=kommander" \
+          --insecure-skip-tls-verify
         ```
 
     === ":octicons-command-palette-16: Command output"
 
         ```{ .text, .no-copy}
         NAME: nai-core
-        LAST DEPLOYED: Sat Apr  4 11:03:09 2026
+        LAST DEPLOYED: Sun May 30 09:03:05 2026
         NAMESPACE: nai-system
         STATUS: deployed
         REVISION: 1
         TEST SUITE: None
         ```
 
-12. Verify that the NAI Core Pods are running and healthy - there should be more jobs completing and pods coming up to establish NAI functionality
+13. Verify that the NAI Core Pods are running and healthy - there should be more jobs completing and pods coming up to establish NAI functionality
     
     === ":octicons-command-palette-16: Command"
 
@@ -602,71 +684,37 @@ We will use the Docker login credentials we created in the previous section to d
         Active namespace is "nai-system".
 
         NAME                                                    READY   STATUS      RESTARTS   AGE
-        ai-gateway-controller-6b786974b5-6gqt6                  1/1     Running     0          13m
-        chi-nai-clickhouse-server-chcluster1-0-0-0              1/1     Running     0          2m1s
-        chk-nai-clickhouse-keeper-chkeeper-0-0-0                1/1     Running     0          105s
-        iam-database-bootstrap-vaszw-s7mpb                      0/1     Completed   0          2m16s
-        iam-proxy-686fff8f6d-cbgjs                              1/1     Running     0          2m16s
-        iam-proxy-control-plane-854c76b8cc-tblt8                1/1     Running     0          2m16s
-        iam-themis-757776777b-mq9pz                             1/1     Running     0          2m15s
-        iam-themis-bootstrap-oeiws-7vmcr                        0/1     Completed   0          2m16s
-        iam-ui-7f6bb5b477-cb9tz                                 1/1     Running     0          2m16s
-        iam-user-authn-78d6b7d8df-tsgs4                         1/1     Running     0          2m16s
-        nai-api-557d94c66f-hxx57                                1/1     Running     0          2m16s
-        nai-api-db-migrate-g2bni-mbdt4                          0/1     Completed   0          2m16s
-        nai-clickhouse-schema-job-1775300590-4gfnh              0/1     Completed   0          2m16s
-        nai-db-0                                                1/1     Running     0          2m16s
-        nai-iep-model-controller-77f44f88c-ndpp2                1/1     Running     0          2m16s
-        nai-labs-86cb964886-xhdxk                               1/1     Running     0          2m16s
-        nai-oauth2-proxy-bdf7f85cf-2nxp5                        1/1     Running     0          2m15s
-        nai-oidc-client-registration-fbb1j-jdwt5                0/1     Completed   0          2m16s
-        nai-operators-nai-clickhouse-operator-f8f666db9-z8vfc   2/2     Running     0          13m
-        nai-otel-collector-collector-94mm9                      1/1     Running     0          2m14s
-        nai-otel-collector-collector-cpdx6                      1/1     Running     0          2m14s
-        nai-otel-collector-collector-pqk5q                      1/1     Running     0          2m14s
-        nai-otel-collector-collector-qxg5r                      1/1     Running     0          2m14s
-        nai-otel-collector-collector-rpl4f                      1/1     Running     0          2m14s
-        nai-otel-collector-collector-wf2fl                      1/1     Running     0          2m14s
-        nai-otel-collector-collector-wz5qz                      1/1     Running     0          2m14s
-        nai-otel-collector-targetallocator-fbc8688d7-c9vm5      1/1     Running     0          2m14s
-        nai-ui-8648bd7dbc-mgf5z                                 1/1     Running     0          2m16s
-        redis-standalone-684f6dd8f7-7rz2v                       2/2     Running     0          13m
+        ai-gateway-controller-d6bb9d79b-qrml2                   1/1     Running     0             6m
+        chi-nai-clickhouse-server-chcluster1-0-0-0              1/1     Running     0             6m
+        chk-nai-clickhouse-keeper-chkeeper-0-0-0                1/1     Running     0             6m
+        iam-database-bootstrap-cfwxl-zljjl                      0/1     Completed   0             6m
+        iam-proxy-7756b78f4c-nqswf                              1/1     Running     0             6m
+        iam-proxy-control-plane-64d65947bf-lgx5x                1/1     Running     0             6m
+        iam-themis-b4bffcf6d-ssg5f                              1/1     Running     1 (1m ago)    6m
+        iam-themis-bootstrap-6rqfk-xf2lm                        0/1     Completed   0             6m
+        iam-ui-c57c768d-fg7b7                                   1/1     Running     0             6m
+        iam-user-authn-d9c68c9f7-nm4sf                          1/1     Running     0             6m
+        nai-agent-7fd556556f-6t7f9                              1/1     Running     0             6m
+        nai-api-77bcff5b4f-hdnp6                                1/1     Running     2 (1m ago)    6m
+        nai-api-db-migrate-wiojv-9v2p8                          0/1     Completed   2             6m
+        nai-clickhouse-schema-job-1780198147-q9drf              0/1     Completed   0             6m
+        nai-db-0                                                1/1     Running     0             6m
+        nai-iep-model-controller-56f79987c7-nhj7t               1/1     Running     0             6m
+        nai-oauth2-proxy-86c574869c-6vw54                       1/1     Running     0             6m
+        nai-operators-nai-clickhouse-operator-f8f666db9-2746s   2/2     Running     0             6m
+        nai-otel-collector-collector-29qwn                      1/1     Running     0             6m
+        nai-otel-collector-collector-78lcj                      1/1     Running     0             6m
+        nai-otel-collector-collector-rp7nt                      1/1     Running     0             6m
+        nai-otel-collector-collector-s6j7c                      1/1     Running     0             6m
+        nai-otel-collector-collector-tqxj7                      1/1     Running     0             6m
+        nai-otel-collector-collector-trbqn                      1/1     Running     0             6m
+        nai-otel-collector-collector-xgcmb                      1/1     Running     0             6m
+        nai-otel-collector-targetallocator-75799c778-h2wf2      1/1     Running     0             6m
+        nai-pulse-job-29671205-4t2kp                            0/1     Completed   0             7m
+        nai-securityscan-manager-c6bc5c8b4-v5jfn                1/1     Running     4 (1m ago)    6m
+        nai-ui-557f5f6c89-xjlzt                                 1/1     Running     0             6m
+        redis-standalone-cf49969d-pzqmt                         2/2     Running     0             6m
         ```
-
-13. The Prometheus monitoring from the NKP catalog has specific RBAC rules applied. Create the required ``clusterRole`` to enable Nutanix Enterprise AI to fetch metrics
-    
-    === ":octicons-command-palette-16: Command"
-    
-        ```bash
-        kubectl patch clusterrole nai-otel-role --type='json' -p='[
-          {
-            "op": "add",
-            "path": "/rules/-",
-            "value": {
-              "apiGroups": [""],
-              "resources": ["services/kube-prometheus-stack-prometheus-node-exporter"],
-              "verbs": ["get"]
-            }
-          }
-        ]'
-        ```
-        ```bash
-        kubectl patch servicemonitor nai-node-exporter-monitor -n nai-system --type='json' -p='[
-          {"op": "add", "path": "/spec/endpoints/0/bearerTokenFile", "value": "/var/run/secrets/kubernetes.io/serviceaccount/token"},
-          {"op": "replace", "path": "/spec/endpoints/0/scheme", "value": "https"},
-          {"op": "add", "path": "/spec/endpoints/0/tlsConfig", "value": {"insecureSkipVerify": true}}
-        ]'
-        ```
-        
-    === ":octicons-command-palette-16: Command output"
-    
-        ```{ .text .no-copy }
-        clusterrole.rbac.authorization.k8s.io/nai-otel-role patched
-        ```
-        ```{ .text .no-copy }
-        servicemonitor.monitoring.coreos.com/nai-node-exporter-monitor patched
-        ```
-    
 
 ## Install SSL Certificate and Gateway Elements
 
@@ -674,22 +722,40 @@ In this section we will install SSL Certificate to access the NAI UI. This is re
 
 NAI UI is accessible using the Envoy Ingress Gateway.
 
-The following steps show how cert-manager can be used to generate a self signed certificate using the default selfsigned-issuer present in the cluster. 
-
-??? tip "Manual - using Public Certificate Authority (CA) for NAI SSL Certificate"
+??? tip "Optional and manual - using Public Certificate Authority (CA)"
     
     If an organization generates certificates using a different mechanism then obtain the certificate **+ key** and create a kubernetes secret manually using the following command:
-
-    ```bash
-    kubectl -n nai-system create secret tls nai-cert --cert=path/to/nai.crt --key=path/to/nai.key
-    ```
-
-    Use patch commmand (Step 6) onwards in this section to use this certificate.
-
-    Skip the steps in this self-signed certificate section to use the organisation generated certificates.
-
     
-??? tip "Automate - using Cert Manager and Public Certificate Authority (CA) for NAI SSL Certificate"  
+    1. Create the certificate from the files (generated using certbot or provided to you)
+  
+        ```bash
+        kubectl -n nai-system create secret tls nai-cert \
+        --cert=path/to/nai.crt \
+        --key=path/to/nai.key
+        ```
+    
+    2. Combine the certificates to get the certificate bundle
+       
+        ```bash
+        cat server.crt intermediate.crt > tls-bundle.crt
+        ```
+    
+    3. Create a kubernetes secret in the nai-system namespace to use during NAI install
+  
+        ```bash
+          kubectl secret tls nai-cert \
+          --cert=tls-bundle.crt \
+          --key=server.key \
+          -n nai-system
+        ```
+    
+    6. Patch the Envoy gateway with the ``nai-cert`` certificate details
+       
+        ```bash
+        kubectl patch gateway nai-ingress-gateway -n nai-system --type='json' -p='[{"op": "replace", "path": "/spec/listeners/1/tls/certificateRefs/0/name", "value": "nai-cert"}]'
+        ```
+
+??? tip "Optional to automate - using Public Certificate Authority (CA) and Cert Manager"  
 
     Using **Cert Manager** to manage the Public Certificate Authority (CA) for NAI SSL Certificate is also a possiblity.
 
@@ -697,50 +763,150 @@ The following steps show how cert-manager can be used to generate a self signed 
 
     1. Get a API key from DNS provider woth Edit Zone rights
     2. Create a Kubernetes ``Secret`` from the API key
-    3. Create a ``ClusterIssuer`` with Cert Mangager/Let's Encrypt - Configure cert-manager to use DNS-01 challenge with Cloudflare for automatic certificate issuance.
-    4. Create the certificate and store it as a ``Secret``
-    5. Patch the NAI Envoy Ingress Gateway ``gateway`` listener with the secret (SSL certificate)
+       
+        === "Cloudflare Example" 
+        
+            ```yaml hl_lines="8"
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: cloudflare-api-token-secret
+              namespace: harbor
+            type: Opaque
+            stringData:
+              api-token: _YOUR_CLOUDFLARE_API_TOKEN_HERE
+            ```
+        
+        === "AWS Route 53 Example"
+        
+            ```yaml hl_lines="8 9"
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              creationTimestamp: null
+              name: route53-api-token-secret
+              namespace: cert-manager
+            data:
+              access-key-id: "_YOUR_AWS_ACCESS_KEY_ID"
+              secret-access-key: "_YOUR_AWS_SECRET_KEY_ID"
+            ```
 
-To create and use a self-signed certificate, follow these steps:
+    3. Create a ``ClusterIssuer`` with Cert Mangager/Let's Encrypt - Configure cert-manager to use DNS-01 challenge with Cloudflare for automatic certificate issuance.
+        
+        === "Cloudflare Example"
+
+            ```yaml hl_lines="8"
+            apiVersion: cert-manager.io/v1
+            kind: ClusterIssuer
+            metadata:
+              name: letsencrypt-cloudflare
+              namespace: cert-manager
+            spec:
+              acme:
+                email: _YOUR_DOMAIN_OWNER_EMAIL_ADDRESS
+                server: https://acme-v02.api.letsencrypt.org/directory
+                privateKeySecretRef:
+                  name: letsencrypt-cloudflare-account-key
+                solvers:
+                - dns01:
+                    cloudflare:
+                      apiTokenSecretRef:
+                        name: cloudflare-api-token-secret
+                        key: api-token
+            ```
+
+        === "AWS Route 53 Example"
+            
+            ```yaml hl_lines="7"
+            apiVersion: cert-manager.io/v1
+            kind: ClusterIssuer
+            metadata:
+              name: letsencrypt-cloudflare
+            spec:
+              acme:
+                email: _YOUR_DOMAIN_OWNER_EMAIL_ADDRESS
+                server: https://acme-v02.api.letsencrypt.org/directory
+                privateKeySecretRef:
+                  name: nai-letsencrypt-cluster
+                solvers:
+                  - dns01:
+                      route53:
+                        region: us-east-1
+                        accessKeyIDSecretRef:
+                          name: route53-api-token-secret
+                          key: access-key-id
+                        secretAccessKeySecretRef:
+                          name: route53-api-token-secret
+                          key: secret-access-key
+                        hostedZoneID: _HOSTED_ZONE_ID
+            ```
+
+    4. Create the ingress resource certificate using the following command:
+    
+        ```bash hl_lines="12 14 16"
+        cat << EOF | k apply -f -
+        apiVersion: cert-manager.io/v1
+        kind: Certificate
+        metadata:
+          name: nai-cert
+          namespace: nai-system
+        spec:
+          issuerRef:
+            name: letsencrypt-cloudflare
+            kind: ClusterIssuer
+          secretName: nai-cert
+          commonName: nai.domain.com
+          dnsNames:
+          - nai.domain.com
+        EOF
+        ```
+    
+    5. Patch the Envoy gateway with the ``nai-cert`` certificate details
+       
+        ```bash
+        kubectl patch gateway nai-ingress-gateway -n nai-system --type='json' -p='[{"op": "replace", "path": "/spec/listeners/1/tls/certificateRefs/0/name", "value": "nai-cert"}]'
+        ```
+
+The following steps show how cert-manager can be used to generate a **self signed certificate** using the default **selfsigned-issuer** present in the cluster for the purposes of the lab.
 
 1. Get the NAI UI ingress gateway host using the following command:
-   
+
     ```bash
-    NAI_UI_ENDPOINT=$(kubectl get svc -n envoy-gateway-system -l "gateway.envoyproxy.io/owning-gateway-name=nai-ingress-gateway,gateway.envoyproxy.io/owning-gateway-namespace=nai-system" -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}' | grep -v '^$' || kubectl get svc -n envoy-gateway-system -l "gateway.envoyproxy.io/owning-gateway-name=nai-ingress-gateway,gateway.envoyproxy.io/owning-gateway-namespace=nai-system" -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
+    NAI_UI_ENDPOINT=$(kubectl get svc -n envoy-gateway-system -l "gateway.envoyproxy.io/owning-gateway-name=nai-ingress-gateway,gateway.envoyproxy.io/owning-gateway-namespace=nai-system" -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}')
     ```
 
 2. Get the value of ``NAI_UI_ENDPOINT`` environment variable
-   
-    === "Command"
 
+    === "Command"
+  
         ```bash
         echo $NAI_UI_ENDPOINT
         ```
-
+               
     === "Command output"
-
-        ``` { .text .no-copy }
+      
+        ```{ .text .no-copy }
         10.x.x.216
         ```
 
 3. We will use the command output e.g: ``10.x.x.216`` as the IP address for NAI as reserved in this [section](../infra/infra_nkp.md#reserve-control-plane-and-metallb-endpoint-ips)
 
 4. Construct the FQDN of NAI UI using [nip.io](https://nip.io/) and we will use this FQDN as the certificate's Common Name (CN).
-   
+
     === "Template URL"
-
-        ```bash
-        nai.${NAI_UI_ENDPOINT}.nip.io
-        ```
-
+    
+       ```bash
+       nai.${NAI_UI_ENDPOINT}.nip.io
+       ```
+    
     === "Sample URL"
-
-        ``` { .text .no-copy }
-        nai.10.x.x.216.nip.io
-        ```
+    
+       ``` { .text .no-copy }
+       nai.10.x.x.216.nip.io
+       ```
 
 5. Create the ingress resource certificate using the following command:
-   
+
     ```bash hl_lines="12 14 16"
     cat << EOF | k apply -f -
     apiVersion: cert-manager.io/v1
@@ -922,7 +1088,7 @@ In this section we will create an inference endpoint using the downloaded model.
 1. Navigate to **Inference Endpoints** menu and click on **Create Endpoint** button
 2. Fill the following details based on GPU or CPU availability:
     
-    !!! tip
+    !!! info
        
         NAI from ``v2.3`` can host a model up to 7 billion parameters on CPU only Nutanix nodes
    

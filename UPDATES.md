@@ -1,164 +1,232 @@
-# Local updates to view with MIKE
+# MkDocs + Mike: Git Pages Update Playbook
 
-Make a change to `docs/index.md`, and publish the first version:
+This document covers the complete workflow for managing and deploying versioned documentation using **Mike** and **GitHub Actions**.
 
-Deploy locally
+---
+
+## Overview: Two Deployment Strategies
+
+| Feature | Minor Update (push main) | Major Release (push tag) |
+|---|---|---|
+| When to use | Fix typos, update content in current version | Lock old version, release a new one |
+| CI Path | PATH B (auto-detects latest tag) | PATH A (creates new version folder) |
+| Version Folder | Existing folder overwritten | New folder created |
+| Version Dropdown | Unchanged | New entry added |
+| Old Versions | Content is replaced | Content preserved in its own folder |
+
+---
+
+## Strategy 1: Minor Day-to-Day Updates (No Tags)
+
+Use this when fixing typos, updating text, or adding small details to the existing stable version. Your `ci.yaml` pipeline (PATH B) will automatically look up the highest current Git tag, overwrite that version folder's contents, and update the `latest` alias.
 
 ```bash
-mike deploy 2.5.0 latest
+# 1. Stage all modified/new files
+git add .
+
+# 2. Commit your changes
+git commit -m "docs: fix typo in air-gap configuration"
+
+# 3. Push to main (triggers the automated minor update workflow)
+git push origin main
 ```
 
+---
+
+## Strategy 2: Major Release (New Version / New Tag)
+
+Use this when bumping the version number (e.g., from `2.7.0` to `2.8.0`). Your `ci.yaml` pipeline (PATH A) will create a brand new folder for this version and point the `latest` alias to it.
+
+```bash
+# 1. Stage all modified/new files
+git add .
+
+# 2. Commit your version release changes
+git commit -m "release: finalize all features for 2.8.0"
+
+# 3. Push code to main branch first
+git push origin main
+
+# 4. Create a new local tag matching your version
+git tag 2.8.0
+
+# 5. Push the tag to GitHub (triggers the major release workflow)
+git push origin 2.8.0
 ```
-mike deploy --push --update-aliases 0.1 latest
-```
-
-Set the default version to `latest`
-
-```
-mike set-default --push latest
-```
-
-Now, make another change and publish a new version:
-
-```
-mike deploy --push --update-aliases 0.2 latest
-```
-
-# Git updates to view with MIKE
-
-1. Daily Updates (The "Dev" version)
-
-   Use your existing commands. This will update the dev folder on your site so you can see changes without affecting your "stable" version.
-   
-   ```bash
-   git add .
-   git commit -m "Update docs"
-   git push origin main
-   ```
-
-
-2. Making a Official Release (The "0.1" version)
-   
-   When your docs are polished and you want to lock them in as a version:
-  
-   ```bash
-   git add .
-   git commit -m "Finalizing version 0.1"
-   # push main for cumulative updates
-   git push origin main
-   # THEN ADD THE TAG: for version releases
-   git tag 0.1
-   git push origin 0.1
-   git push origin -f 0.1 # if the tag already exists on git_pages branch
-   ```
-
-
-3. Why do both?
-   
-   ``git push origin main``: Sends your actual Markdown code to your main branch so you don't lose your work.
-   ``git push origin 0.1``: This is the "signal" to your CI.yaml to run mike deploy 0.1. Without the tag push, the CI won't know to create a new version folder; it will just keep updating dev.
 
 **Summary Rule of Thumb:**
-- Just coding/writing? Just add, commit, push.
-- Releasing a version? add, commit, push + tag, push tag
+- Just coding/writing? → `add`, `commit`, `push`
+- Releasing a version? → `add`, `commit`, `push` + `tag`, `push tag`
 
-## Accidental commits and managing versions
+---
 
-If you accidentally tag a commit (e.g., you notice a typo right after pushing), you can "undo" it both locally and on GitHub with these commands.
-## 1. Delete the tag locally
-This removes the tag from your computer’s history.
+## Local Preview with Mike
+
+Use these commands to preview versioned docs locally before pushing to GitHub.
+
+```bash
+# Deploy and preview version locally
+mike deploy 2.5.0 latest
+
+# Set the default version
+mike set-default --push latest
+
+# Deploy a new version locally
+mike deploy --push --update-aliases 0.2 latest
+
+# Live preview without making changes
+mkdocs serve --livereload
+```
+
+> ⚠️ **Avoid running `mike deploy --push` from your laptop** once CI is set up. Let GitHub Actions handle all pushes to `gh-pages` exclusively to prevent branch conflicts.
+
+---
+
+## Accidental Commits: Undo a Bad Tag
+
+If you accidentally tag a commit (e.g., you notice a typo right after pushing), follow these steps to undo it.
+
+### Step 1: Delete the tag locally
 
 ```bash
 git tag -d 0.1
 ```
 
-## 2. Delete the tag from GitHub
-This tells GitHub to remove the tag from the remote repository so the CI doesn't try to deploy it again.
+### Step 2: Delete the tag from GitHub
 
 ```bash
 git push --delete origin 0.1
 ```
 
-## 3. Fixing and Re-tagging
-Once the "bad" tag is gone, you can fix your files and re-apply the tag to the correct commit:
-
-# 1. Fix the files
-
+### Step 3: Fix files and re-tag
 
 ```bash
 git add .
 git commit -m "Fix typo in 0.1 docs"
 git push origin main
-# 2. Re-apply and push the tag
+
+# Re-apply and push the corrected tag
 git tag 0.1
 git push origin 0.1
 ```
 
-## 4. Cleanup the Site (The "Mike" part)
-Deleting the Git tag does not automatically delete the version folder from your gh-pages branch. You need to manually tell mike to remove that version from the live site:
+### Step 4: Clean up the live site (Mike)
 
-# Delete the version from the remote gh-pages branch
+Deleting the Git tag does **not** automatically remove the version folder from your `gh-pages` branch. You must tell Mike explicitly:
 
 ```bash
 mike delete --push 0.1
 ```
 
-## Pro-Tip: "Moving" a tag
-If you just want to move the tag to your latest commit without deleting/recreating manually:
+### Pro-Tip: Move a tag to your latest commit
 
 ```bash
 git tag -f 0.1
 git push -f origin 0.1
 ```
 
-(Note: Use the -f force flag with caution, as it overwrites history!)
-Do you want to see how to automate the version naming in your ci.yaml so you don't have to manually type 0.1 every time?
+> **Caution:** Use `-f` (force) carefully — it overwrites history.
 
-# Compare 
+---
 
-To illustrate your new workflow, here are the exact commands you will run on your local machine for each scenario.
-## 1. Minor Change (Update the current "stable" docs)
-Use this when you fix a typo or update a guide within the current version.
+## Deleting Old Versions from the Live Site
 
-| Step | Command | Result |
-|---|---|---|
-| 1. Edit | (Modify your .md files) | Changes exist only on your disk. |
-| 2. Save | git add . git commit -m "docs: update install guide" | Changes are saved in your local main history. |
-| 3. Push | git push origin main | CI triggers: It finds your latest tag (e.g., 2.5.0) and overwrites the content of both the /2.5.0/ and /latest/ folders on your site. |
+To safely remove an old version (e.g., `2.5.0`) from your live site, follow these steps.
 
-------------------------------
-## 2. Major Change (Release a brand new version)
-Use this when you are ready to "lock" the old version and start a new one (e.g., moving from 2.5.0 to 2.6.0).
-
-| Step | Command | Result |
-|---|---|---|
-| 1. Sync | git checkout main git pull origin main | Ensures you are tagging the absolute latest code. |
-| 2. Tag | git tag 2.6.0 | Creates a "marker" in your git history for the new version. |
-| 3. Push | git push origin 2.6.0 | CI triggers: It creates a new folder /2.6.0/ on your site and updates the /latest/ alias to point to it. |
-
-------------------------------
-## Comparison of the two workflows
-
-| Feature | Minor Update (push main) | Major Update (push tag) |
-|---|---|---|
-| Site URL | ://yoursite.com (updated) | ://yoursite.com (updated) |
-| Version Folder | ://yoursite.com (overwritten) | ://yoursite.com (created new) |
-| Version Dropdown | Stays the same (e.g., "2.5.0") | Adds a new entry (e.g., "2.6.0") |
-| Old Versions | Content is replaced | Content is preserved in its own folder |
-
-## Crucial Note for First Run
-Because you previously had the "gh-pages is unrelated" error, make sure your first push includes the fetch-depth: 0 change in your ci.yaml. If the CI fails on the first try, you may need to manually delete the remote gh-pages branch once to "reset" the history, but the updated YAML usually fixes this automatically.
-Would you like me to show you how to test this locally one last time before pushing the YAML changes to your repo?
-
-
-## Regular Flow
+### Step 1: Sync your local `gh-pages` branch with GitHub
 
 ```bash
- 1356  git add .
- 1357  git commit -am "Update: start 2.6.0 air-gap"
- 1359  mike deploy 2.5.0 latest
- 1360  mike set-default --push latest
- 1361  mike deploy --push --update-aliases 2.6.0 latest
- 1362  mike serve
- 1363  mkdocs serve --livereload
- ```
+git checkout gh-pages
+git reset --hard origin/gh-pages
+```
+
+### Step 2: Delete the version and push
+
+```bash
+# Remove the version folder and update the dropdown
+mike delete 2.5.0
+
+# Push the deletion directly to GitHub Pages
+mike --push
+```
+
+### Step 3: Switch back to your working branch
+
+```bash
+git checkout main
+```
+
+### Step 4: Delete the old Git tag (Recommended)
+
+Prevents future CI pipelines from accidentally referencing this version.
+
+```bash
+# Delete tag locally
+git tag -d 2.5.0
+
+# Delete tag on GitHub
+git push origin --delete 2.5.0
+```
+
+### Step 5: Verify and reset the default page
+
+If you deleted the version your site defaults to, you may get a 404. Reset the landing page:
+
+```bash
+mike set-default --push latest
+```
+
+---
+
+## Keeping Local and Remote in Sync
+
+Always sync your local `gh-pages` state before making administrative changes.
+
+```bash
+# Fetch the latest changes from GitHub's gh-pages branch
+git fetch origin gh-pages
+
+# Verify the current versions.json
+git show origin/gh-pages:versions.json
+```
+
+Example `versions.json` output:
+
+```json
+[
+  {
+    "version": "2.7.0",
+    "title": "NAI 2.7.0",
+    "aliases": ["latest"]
+  },
+  {
+    "version": "2.6.0",
+    "title": "NAI 2.6.0",
+    "aliases": []
+  },
+  {
+    "version": "2.5.0",
+    "title": "NAI 2.5.0",
+    "aliases": []
+  }
+]
+```
+
+---
+
+## First-Run Note
+
+If you previously encountered the `"gh-pages is unrelated history"` error, ensure your first push includes `fetch-depth: 0` in your `ci.yaml`. If the CI still fails, manually delete the remote `gh-pages` branch once to reset the history — the updated YAML will handle it automatically on the next run.
+
+---
+
+## ⚠️ Pro-Tips for Smooth Deploys
+
+- **No local Mike pushes:** Let GitHub Actions exclusively manage `gh-pages` to avoid conflicts.
+- **Local preview:** Use `mkdocs serve --livereload` for a safe live preview without touching the remote.
+- **Accidental tags:** Use the force flag to correct a prematurely pushed tag:
+
+```bash
+git tag -f <version>
+git push origin <version> -f
+```

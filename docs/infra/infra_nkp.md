@@ -82,7 +82,7 @@ Below are minimum requirements for deploying NAI on the NKP Demo Cluster.
     2. [Docker](#setup-docker-on-jumphost) or Podman installed on the jumphost VM
     3. Nutanix PC is at least ``pc.7.5.0.1``
     4. Nutanix AOS is at least ``7.3.0.5``
-    5. Download and install NKP ``v2.17`` binary from Nutanix Portal
+    5. Download and install NKP ``v2.17.1`` binary from Nutanix Portal
     6. Find and reserve 3 IPs for control plane and MetalLB access from AHV network
     7. Find GPU details from Nutanix cluster
     8. Create a base image to use with NKP nodes using ``nkp`` command
@@ -337,7 +337,7 @@ In this section we will go through creating a base image for all the control pla
         export CONTROLPLANE_VIP=_your_nkp_cluster_controlplane_ip
         export LB_IP_RANGE=_your_range_of_two_ips
         export DOCKER_USERNAME=_your_docker_username
-        export DOCKER_PASSWORD=_your_docker_password
+        export DOCKER_PASSWORD=_your_docker_password_pat
         ```
 
     === "Sample .env"

@@ -20,26 +20,25 @@ nav:
   - Workstation Setup: infra/workstation.md
   - Jumphost VM Tofu: infra/infra_jumphost_tofu.md
 - NAI on NKP Tutorials:
-  - Nutanix Enterprise AI v2.6.0 (NAI):
+  - NAI v2.7.0:
     - Getting Started: iep/index.md
     - Setup NKP Cluster: infra/infra_nkp.md
     - Pre-requisites NAI: iep/iep_pre_reqs.md
     - Deploy NAI: iep/iep_deploy.md
     - Test NAI: iep/iep_test.md
-  - Air-gapped Nutanix Enterprise AI v2.6.0 (NAI):
+  - Air-gapped NAI v2.7.0 (NAI):
     - Getting Started: airgap_nai/index.md
     - Harbor Container Registry: airgap_nai/harbor.md
     - Setup Air-gapped NKP Cluster: airgap_nai/infra_nkp_airgap.md
     - Pre-requisites NAI: airgap_nai/airgap_nai_pre_reqs.md
     - Deploy NAI: airgap_nai/airgap_nai_deploy.md
     - Test NAI: airgap_nai/airgap_nai_test.md
-  # - GPT-in-a-Box v1 NVD Reference App:
-  #   - Getting Started: llmmgmt/index.md
-  #   - Setup NKE Cluster: infra/infra_nke.md
-  #   - Pre-requisites: llmmgmt/llm_pre_reqs.md
-  #   - Deploy Management Cluster: llmmgmt/llm_mgt_deploy.md
-  #   - Deploy Dev Cluster: llmmgmt/llm_dev_deploy.md
-  #   - Test LLM App: llmmgmt/llm_test.md
+  - NAI v2.7.0 using NKP Catalog Applications:
+    - Getting Started: nkp_catalog_nai/index.md
+    - Deploy NAI: nkp_catalog_nai/nkp_catalog_nai_deploy.md
+  - NAI Unified Endpoints:
+    - Getting Started: uep/index.md
+    - Fall Back Endpoints: uep/iep_uep_test.md
 - NKP Workload Tutorials: 
   - NKP and NDB: 
     - Getting Started: nkp_tutorials/nkp_ndb_lab/index.md
@@ -50,6 +49,7 @@ nav:
     - CICD Pre-requisites: nkp_tutorials/nkp_cicd_lab/nkp_cicd_prereq.md
     - CI Setup and Test: nkp_tutorials/nkp_cicd_lab/nkp_ci_setup.md
     - CD Setup and Test: nkp_tutorials/nkp_cicd_lab/nkp_cd_setup.md
+    - Gitless Gitops: nkp_tutorials/nkp_cicd_lab/gitless_gitops_lab.md
     - CICD Troubleshooting: nkp_tutorials/nkp_cicd_lab/nkp_cicd_tshooting.md
   - Nutanix MCP Server: 
     - MCP Server Setup: nkp_tutorials/nkp_mcp_lab/nkp_nai_mcp.md
@@ -63,24 +63,36 @@ nav:
   - Files (RWX CSI)Replication:
     - Single PC/PE/K8s Workflow: nkp_ndk/nkp_ndk_singlek8s_files.md
     - Multiple PE/K8s/Files Workflow: nkp_ndk/nkp_ndk_k8s_files_replication.md
-- Appendix:
-  - Jumphost VM Manual: infra/infra_jumphost.md
-  - NKP The Hard Way: appendix/infra_nkp_hard_way.md
-  - Harbor Container Registry: infra/harbor.md
-  - Deploying Private CA Certificate to NKP Cluster: appendix/nkp_cert_ds.md
-  - Opentofu: appendix/opentofu.md
-- References:
-  - Nutanix Components: ntxcomponents/ntxcomponents.md
-  - Tools used and why?: tools/tools.md
-  - Contributing: contributing.md
-  - Roadmap: roadmap.md
+
+- NKP Flow CNI Tutorials:
+  - Getting Started: nkp_flow_cni/index.md
+  - Preparing for Flow CNI on NKP: nkp_flow_cni/nkp_flow_cni.md
+  - Deploy NKP Clusters with Flow CNI: nkp_flow_cni/nkp_flow_nkp_wrkld.md
+  - Preparing VPC and Subnets: nkp_flow_cni/nkp_flow_network.md
+  - Deploy and Test App: nkp_flow_cni/nkp_flow_deploy_app.md
+
+
 - Simulators:
   - static/index.md
   - Pods and Nodepools Simulation: static/scheduling-mixed-pods-and-nodepool-v1.html
   - K8S Deployment Strategies: static/k8s-deployment-strategies-visualizer.html
   - LLM Model Selector: static/nai-llm-model-selectr.html
   - LLM Scheduling Kubernetes Clusters: static/nai-llm-simulation-v1-nim-rag.html
-- Takeaways: takeaways/takeaways.md
+
+
+- Appendix:
+  - Jumphost VM Manual: infra/infra_jumphost.md
+  - NKP The Hard Way: appendix/infra_nkp_hard_way.md
+  - Harbor Container Registry: infra/harbor.md
+  - Deploying Private CA Certificate to NKP Cluster: appendix/nkp_cert_ds.md
+  - Opentofu: appendix/opentofu.md
+  - Nutanix Components: ntxcomponents/ntxcomponents.md
+  - Tools used and why?: tools/tools.md
+  - Contributing: contributing.md
+  - Roadmap: roadmap.md
+
+# - Takeaways: takeaways/takeaways.md
+- Releases: releases.md
 
 
 # Repository
