@@ -3,7 +3,7 @@ site_url: https://nai.howntnx.win/
 site_description: >-
   The one-stop shop for Nutanix Cloud Native and AI solutions. 
 
-repo_url: https://github.com/nutanix-japan/nai-llm
+repo_url: https://github.com/j-d271/nai-llm
 theme:
   name: material
 
@@ -97,8 +97,8 @@ nav:
 
 # Repository
 
-repo_name: nutanix-japan/nai-llm
-repo_url: https://github.com/nutanix-japan/nai-llm
+repo_name: j-d271/nai-llm
+repo_url: https://github.com/j-d271/nai-llm
 edit_uri: edit/main/docs/
 
 # Copyright
@@ -209,7 +209,7 @@ plugins:
 #     include_dir: docs
 #- git-authors
 # - git-committers:
-#     repository: nutanix-japan/nai-llm
+#     repository: j-d271/nai-llm
 #     branch: main
 #     enabled: !ENV [CI, false]
 
@@ -253,7 +253,7 @@ extra:
   #   property: !ENV GOOGLE_ANALYTICS_KEY
   social:
   - icon: fontawesome/brands/github
-    link: https://github.com/nutanix-japan
+    link: https://github.com/j-d271
   - icon: fontawesome/brands/github
     link: https://github.com/jesse-gonzalez
 
